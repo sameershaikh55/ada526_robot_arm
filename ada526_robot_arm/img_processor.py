@@ -4,6 +4,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image as image_msg
 from sensor_msgs.msg import CameraInfo as camerainfo_msg
 from geometry_msgs.msg import PointStamped as point_msg
+from geometry_msgs.msg import PoseStamped as pose_msg
 from cv_bridge import CvBridge
 import cv2
 import numpy as np
@@ -62,7 +63,7 @@ class ImageProcessor(Node):
         # /camera_point -> In camera_color_optical_frame (meters, for RViz2 visualization)
         # /goal_point   -> In robot base_link frame (millimeters, for IK controller)
         self.pub_cam_point = self.create_publisher(point_msg, '/camera_point', 10)
-        self.pub_goal_point = self.create_publisher(point_msg, '/goal_point', 10)
+        self.pub_goal_point = self.create_publisher(pose_msg, '/goal_point', 10)
         self.pub_debug_img = self.create_publisher(image_msg, '/vision/debug_image', 10)
 
         # Internal state properties
@@ -73,11 +74,11 @@ class ImageProcessor(Node):
         self.depth = 0.0             # Depth at centroid in meters
 
         # Homogeneous Transformation Matrix T_R_C (Camera Frame {C} -> Robot Base Frame {R})
-        # Update with Patrick's exact CAD measurements (currently identity + offset placeholder in mm)
+        # TODO: Update with Patrick's exact CAD measurements (currently identity + offset placeholder in m)
         self.T_R_C = np.array([
-            [ 0.0, -1.0,  0.0,  150.0],  # X_R (mm)
-            [-1.0,  0.0,  0.0,    0.0],  # Y_R (mm)
-            [ 0.0,  0.0, -1.0,  400.0],  # Z_R (mm)
+            [ 0.0, -1.0,  0.0,  0.150],  # X_R (m)
+            [-1.0,  0.0,  0.0,    0.0],  # Y_R (m)
+            [ 0.0,  0.0, -1.0,  0.400],  # Z_R (m)
             [ 0.0,  0.0,  0.0,    1.0]
         ])
 
@@ -158,24 +159,26 @@ class ImageProcessor(Node):
                 self.pub_cam_point.publish(cam_pt)
 
                 # 2. Convert to millimeters and Transform to Robot Base Frame {R}
-                P_C_mm = np.array([
-                    point_3d_m[0] * 1000.0,
-                    point_3d_m[1] * 1000.0,
-                    point_3d_m[2] * 1000.0,
+                P_C_m = np.array([
+                    point_3d_m[0] ,
+                    point_3d_m[1] ,
+                    point_3d_m[2] ,
                     1.0
                 ])
-                P_R_mm = self.T_R_C @ P_C_mm
+                P_R_m = self.T_R_C @ P_C_m
 
-                goal_pt = point_msg()
+                goal_pt = pose_msg()
                 goal_pt.header.stamp = cam_pt.header.stamp
                 goal_pt.header.frame_id = 'base_link'
-                goal_pt.point.x = float(P_R_mm[0])
-                goal_pt.point.y = float(P_R_mm[1])
-                goal_pt.point.z = float(P_R_mm[2])
+
+                goal_pt.pose.position.x = float(P_R_m[0])
+                goal_pt.pose.position.y = float(P_R_m[1])
+                goal_pt.pose.position.z = float(P_R_m[2])
+                goal_pt.pose.orientation.w = 1.0
                 self.pub_goal_point.publish(goal_pt)
 
                 # Annotate 3D coordinates on debug image
-                label = f"Cam(mm): [{P_C_mm[0]:.0f}, {P_C_mm[1]:.0f}, {P_C_mm[2]:.0f}]"
+                label = f"Cam(m): [{P_C_m[0]:.3f}, {P_C_m[1]:.3f}, {P_C_m[2]:.3f}]"
                 cv2.putText(current_frame, label, (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
 
