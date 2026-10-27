@@ -8,7 +8,7 @@ from math import pi
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped
 
 # This example shows how to check if your robot can reach all the corners of the base plate.
 # If you see that the translational o andular distance is too large, the manipulability is close to zero or the Jacobian of the robot loses rank (rank < 5), you should consider changing the robot's link lengths and offsets.
@@ -36,7 +36,7 @@ class RobotNode(Node):
         self.traj = []
         self.trajState = False #Trajetery if true
 
-        self.create_subscription(Pose, "target_pose", self.subscriber_pos, 10)    
+        self.create_subscription(PoseStamped, "/goal_point", self.subscriber_pos, 10)    
 
         self.joint_pub = self.create_publisher(JointState, "joint_states", 10)
 
@@ -61,7 +61,7 @@ class RobotNode(Node):
         self.get_logger().info(f"Publishing: {msg.position}")
 
     def subscriber_pos(self, msg: Pose):
-        p = msg.position
+        p = msg.pose.position
         Tgoal = SE3(p.x, p.y, p.z)
         sol = self.robot.ikine_LM(
             Tgoal, 
