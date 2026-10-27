@@ -58,9 +58,18 @@ def generate_launch_description():
         }]
     )
 
+     # 5. Launch Kinematics Core Node
+    kinematics_node = Node(
+        package="ada526_robot_arm",
+        executable="kinematics_core",
+        name="kinematics_node",
+        output="screen",
+    )
+
     return LaunchDescription([
         realsense_node,
         static_tf_node,
         img_processor_node,
+        kinematics_node,
         robot_controller_node
     ])

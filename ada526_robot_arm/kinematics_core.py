@@ -38,7 +38,7 @@ class RobotNode(Node):
 
         self.create_subscription(PoseStamped, "/goal_point", self.subscriber_pos, 10)    
 
-        self.joint_pub = self.create_publisher(JointState, "joint_states", 10)
+        self.joint_pub = self.create_publisher(JointState, "/joint_states", 10)
 
         self.create_timer(0.3, self.timer_callback)
 

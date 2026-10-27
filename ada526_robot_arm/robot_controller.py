@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray
 import numpy as np
 
@@ -59,9 +59,9 @@ class RobotControllerNode(Node):
             10
         )
         self.sub_goal = self.create_subscription(
-            PointStamped,
-            '/goal_point',
-            self.goal_point_callback,
+            JointState,
+            '/joint_states',
+            self.joint_state_callback,
             10
         )
 
@@ -147,13 +147,18 @@ class RobotControllerNode(Node):
         self.get_logger().info(f'Executing Joint Command (rad): {[round(q, 2) for q in msg.data]} -> Ticks: {ticks}')
         self.send_sync_goal_ticks(ticks)
 
-    def goal_point_callback(self, msg: PointStamped):
-        """Receives 3D target point [X_R, Y_R, Z_R] in base_link frame (mm)."""
-        x, y, z = msg.point.x, msg.point.y, msg.point.z
-        self.get_logger().info(f'Received Target in Base Frame (mm): X={x:.1f}, Y={y:.1f}, Z={z:.1f}')
-        # Hook for Hansi's IK solver:
-        # q_sol, success = solve_ik(x, y, z)
-        # if success: self.send_sync_goal_ticks([self.rad_to_ticks(q) for q in q_sol])
+    def joint_state_callback(self, msg: JointState):
+        """Receives solved IK joint angles from kinematics_core (in radians)."""
+        if len(msg.position) != len(self.motor_ids):
+            self.get_logger().warn(f'Kinematics gave {len(msg.position)} angles, expected {len(self.motor_ids)}.')
+            return
+
+        angles_rad = msg.position
+        self.get_logger().info(f'Received IK Solution (rad): {[round(q, 2) for q in angles_rad]}')
+
+        # Convert radians to Dynamixel Ticks and send to motors
+        target_ticks = [self.rad_to_ticks(q) for q in angles_rad]
+        self.send_sync_goal_ticks(target_ticks)
 
 
 def main(args=None):
