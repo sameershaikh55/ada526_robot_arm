@@ -16,14 +16,15 @@ from geometry_msgs.msg import PoseStamped
 # Setter opp robotens parameter
 def buildRobot():
     robot = rtb.DHRobot(
-        [
-            rtb.RevoluteDH(d=0.2, a=0.0, alpha=pi/2, qlim=[-110 *pi/180, 110 *pi/180]), 
-            rtb.RevoluteDH(a=0.20, d=0.0, qlim=[-80 *pi/180, 260 *pi/180]),
-            rtb.RevoluteDH(a=0.28, d=0.0, qlim=[-170 *pi/180, 170 *pi/180]),
-            rtb.RevoluteDH(a=0.05, d=0.0, alpha=pi/2,qlim=[-170 *pi/180, 170 *pi/180]),
-            rtb.RevoluteDH(d=0.05, a=0.02, qlim=[-2*pi, 2*pi]),
-        ], name="My Config 1 Robot")
-    robot.qr = [0, 0.0, 0.0, -pi/2, 0.0]   
+    [
+        rtb.RevoluteDH(d=0.2, a=0.0, alpha=pi/2, qlim=[-110 *pi/180, 110 *pi/180]), 
+        rtb.RevoluteDH(a=0.20, d=0.0, qlim=[-80 *pi/180, 80 *pi/180]),
+        rtb.RevoluteDH(a=0.28, d=0.0, qlim=[-80 *pi/180, 80 *pi/180]),
+        rtb.RevoluteDH(alpha=pi/2,qlim=[-80 *pi/180, 80 *pi/180]),
+        rtb.RevoluteDH(d=0.05, a=0.0, qlim=[-2*pi, 2*pi]),
+       
+    ], name="My Config 1 Robot")
+    robot.tool = SE3(0, 0.05, 0.05) 
     return (robot)
 
 class RobotNode(Node):
@@ -56,7 +57,7 @@ class RobotNode(Node):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name = self.joint_names
-        msg.position = [float(x) for x in self.robot.q]
+        msg.position = [float(x+180) for x in self.robot.q]
         self.joint_pub.publish(msg)
         self.get_logger().info(f"Publishing: {msg.position}")
 
