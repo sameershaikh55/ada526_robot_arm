@@ -4,7 +4,7 @@ from spatialmath import SE3
 import time
 import roboticstoolbox as rtb
 from math import pi
-import numpy as np 
+# import numpy as np
 
 import rclpy
 from rclpy.node import Node
@@ -59,7 +59,7 @@ class RobotNode(Node):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name = self.joint_names
-        msg.position = [float(np.deg2rad(x)) for x in self.robot.q]
+        msg.position = [float(x) for x in self.robot.q]
         self.joint_pub.publish(msg)
         self.get_logger().info(f"Publishing: {msg.position}")
 
