@@ -4,6 +4,7 @@ from spatialmath import SE3
 import time
 import roboticstoolbox as rtb
 from math import pi
+import numpy as np 
 
 import rclpy
 from rclpy.node import Node
@@ -20,11 +21,12 @@ def buildRobot():
         rtb.RevoluteDH(d=0.2, a=0.0, alpha=pi/2, qlim=[-110 *pi/180, 110 *pi/180]), 
         rtb.RevoluteDH(a=0.20, d=0.0, qlim=[-80 *pi/180, 80 *pi/180]),
         rtb.RevoluteDH(a=0.28, d=0.0, qlim=[-80 *pi/180, 80 *pi/180]),
-        rtb.RevoluteDH(alpha=pi/2,qlim=[-80 *pi/180, 80 *pi/180]),
+        rtb.RevoluteDH(alpha=pi/2,qlim=[-80 *pi/170, 80 *pi/170]),
         rtb.RevoluteDH(d=0.05, a=0.0, qlim=[-2*pi, 2*pi]),
        
     ], name="My Config 1 Robot")
     robot.tool = SE3(0, 0.05, 0.05) 
+    robot.qr = [0, 0, 0, 0, 0]
     return (robot)
 
 class RobotNode(Node):
@@ -57,11 +59,11 @@ class RobotNode(Node):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name = self.joint_names
-        msg.position = [float(x+180) for x in self.robot.q]
+        msg.position = [float(np.deg2rad(x)) for x in self.robot.q]
         self.joint_pub.publish(msg)
         self.get_logger().info(f"Publishing: {msg.position}")
 
-    def subscriber_pos(self, msg: Pose):
+    def subscriber_pos(self, msg: PoseStamped):
         p = msg.pose.position
         Tgoal = SE3(p.x, p.y, p.z)
         sol = self.robot.ikine_LM(

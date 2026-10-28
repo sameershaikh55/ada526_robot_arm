@@ -154,7 +154,7 @@ class RobotControllerNode(Node):
             return
 
         angles_rad = msg.position
-        self.get_logger().info(f'Received IK Solution (rad): {[round(q, 2) for q in angles_rad]}')
+        self.get_logger().info(f'Received IK Solution (rad): {list(zip(msg.name, msg.position))}')
 
         # Convert radians to Dynamixel Ticks and send to motors
         target_ticks = [self.rad_to_ticks(q) for q in angles_rad]
