@@ -40,7 +40,7 @@ def generate_launch_description():
         executable='img_processor',
         name='image_processor_node',
         output='screen',
-        parameters=[{'target_color': 'red'}]
+        parameters=[{'target_color': 'red', 'show_debug_window': True}]
     )
 
     # 4. Launch Custom Dynamixel Robot Controller Node
