@@ -21,9 +21,8 @@ def buildRobot():
         rtb.RevoluteDH(d=0.2, a=0.0, alpha=pi/2, qlim=[-110 *pi/180, 110 *pi/180]), 
         rtb.RevoluteDH(a=0.20, d=0.0, qlim=[-80 *pi/180, 80 *pi/180]),
         rtb.RevoluteDH(a=0.28, d=0.0, qlim=[-80 *pi/180, 80 *pi/180]),
-        rtb.RevoluteDH(alpha=pi/2,qlim=[-80 *pi/170, 80 *pi/170]),
-        rtb.RevoluteDH(d=0.05, a=0.0, qlim=[-2*pi, 2*pi]),
-       
+        rtb.RevoluteDH(alpha=pi/2,offset=pi/2,qlim=[-80 *pi/180, 80 *pi/180]),
+        rtb.RevoluteDH(d=0.05, a=0.00, qlim=[-2*pi, 2*pi]),
     ], name="My Config 1 Robot")
     robot.tool = SE3(0, 0.05, 0.05) 
     robot.qr = [0, 0, 0, 0, 0]
@@ -63,26 +62,75 @@ class RobotNode(Node):
         self.joint_pub.publish(msg)
         self.get_logger().info(f"Publishing: {msg.position}")
 
-    def subscriber_pos(self, msg: PoseStamped):
-        p = msg.pose.position
-        Tgoal = SE3(p.x, p.y, p.z)
+
+    def no_leagal_point(self, T_all: SE3):
+        for T in T_all[1:]:
+            if T.t[2] <= 0:
+                return True
+
+        return False
+    
+    def posisjons(self, Tgoal):
         sol = self.robot.ikine_LM(
             Tgoal, 
             q0=self.robot.q, 
-            mask=[1, 1, 1, 0, 0, 0]#Can add tol to get more acurate position, but need to see if motor are can do bether
+            mask=[1, 1, 1, 0, 0, 0.5],
+            tol = 1e-6, #Smaller tol => samller error
+            joint_limits = True #Take q.lim in consideration
             )
+        
 
-        if not sol.success:
+        if sol.success and self.no_leagal_point(self.robot.fkine_all(sol.q)):
+            self.get_logger().warn(f"Link throu the table, trying to move goal up")
+            newTgoal = SE3(Tgoal.t[0], Tgoal.t[1], Tgoal.t[2] + 0.05)
+            sol = self.posisjons(newTgoal)
+            if sol:
+                sol = self.robot.ikine_LM(
+                    Tgoal, 
+                    q0=sol.q, 
+                    mask=[1, 1, 1, 0, 0, 0.5],
+                    tol = 1e-6, #Smaller tol => samller error
+                    joint_limits = True #Take q.lim in consideration
+                )
+            
+        if sol:
+            if not sol.success or self.no_leagal_point(self.robot.fkine_all(sol.q)):
+                return None
+        return sol
+                     
+
+    def subscriber_pos(self, msg: PoseStamped):
+        p = msg.pose.position
+        Tgoal = SE3(p.x, p.y, p.z)
+        # sol = self.robot.ikine_LM(
+        #     Tgoal, 
+        #     q0=self.robot.q, 
+        #     mask=[1, 1, 1, 0, 0, 0],
+        #     tol = 1e-6, #Smaller tol => samller error
+        #     joint_limits = True #Take q.lim in consideration
+        #     )
+
+        # if not sol.success:
+        #     self.get_logger().warn(
+        #         f"No solution for ({p.x:.2f}, {p.y:.2f}, {p.z:.2f})"
+        #     )
+        #     return
+        
+
+        sol = self.posisjons(Tgoal)
+
+        if not sol:
             self.get_logger().warn(
                 f"No solution for ({p.x:.2f}, {p.y:.2f}, {p.z:.2f})"
-            )
-            return
+                )
+            return 
+
 
         if self.trajState:
             self.traj = list(rtb.jtraj(self.robot.q, sol.q, 50).q)
         else:
             self.robot.q = sol.q
-        self.get_logger().info("Mål akseptert, starter bevegelse")
+        self.get_logger().info("Goal accapted, moving to goal")
 
 
 def main(args=None):
