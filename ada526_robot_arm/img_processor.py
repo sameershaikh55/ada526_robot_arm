@@ -45,9 +45,7 @@ class ImageProcessor(Node):
         )
 
         # 2. Subscribe to RGB Color Stream
-        self.sub_color = self.create_subscription(
-            image_msg, "/camera/color/image_raw", self.sub_color_callback, 10
-        )
+        self.sub_color = self.create_subscription(image_msg, "/camera/color/image_raw", self.sub_color_callback, 10)
 
         # 3. Subscribe to Aligned Depth Stream (matches RGB pixel-for-pixel)
         self.sub_depth = self.create_subscription(
@@ -82,9 +80,7 @@ class ImageProcessor(Node):
             ]
         )
 
-        self.get_logger().info(
-            "ImageProcessor node initialized. Waiting for RealSense streams..."
-        )
+        self.get_logger().info("ImageProcessor node initialized. Waiting for RealSense streams...")
 
     def sub_intrinsics_callback(self, msg: camerainfo_msg):
         """Extracts camera intrinsic matrix K parameters from CameraInfo message."""
@@ -116,19 +112,13 @@ class ImageProcessor(Node):
 
         # Step B: Convert to Lab color space (separates luminance L from color planes a & b)
         lab_img = cv2.cvtColor(smoothed_bgr, cv2.COLOR_BGR2LAB)
-        target_color = (
-            self.get_parameter("target_color").get_parameter_value().string_value
-        )
+        target_color = self.get_parameter("target_color").get_parameter_value().string_value
 
         # In OpenCV Lab: 'a' channel (>145 is strong red), 'b' channel (<110 is strong blue)
         if target_color == "red":
-            mask = cv2.inRange(
-                lab_img, np.array([20, 145, 120]), np.array([255, 255, 200])
-            )
+            mask = cv2.inRange(lab_img, np.array([20, 145, 120]), np.array([255, 255, 200]))
         else:  # 'blue'
-            mask = cv2.inRange(
-                lab_img, np.array([20, 100, 40]), np.array([255, 160, 110])
-            )
+            mask = cv2.inRange(lab_img, np.array([20, 100, 40]), np.array([255, 160, 110]))
 
         # Morphological opening to clean isolated noise pixels
         kernel = np.ones((5, 5), np.uint8)
@@ -153,9 +143,7 @@ class ImageProcessor(Node):
         if self.depth > 0.05:  # Valid non-zero depth (> 5 cm)
             try:
                 # Returns [X_c, Y_c, Z_c] in meters in camera_color_optical_frame
-                point_3d_m = rs.rs2_deproject_pixel_to_point(
-                    self.intrinsics, self.centroids, self.depth
-                )
+                point_3d_m = rs.rs2_deproject_pixel_to_point(self.intrinsics, self.centroids, self.depth)
 
                 # 1. Publish in Camera Optical Frame (meters) for RViz2 verification
                 cam_pt = point_msg()
@@ -196,9 +184,7 @@ class ImageProcessor(Node):
                 self.get_logger().warn(f"Deprojection error: {e}")
 
         # Publish annotated debug image to ROS topic (viewable in rqt_image_view or RViz2)
-        self.pub_debug_img.publish(
-            self.br.cv2_to_imgmsg(current_frame, encoding="bgr8")
-        )
+        self.pub_debug_img.publish(self.br.cv2_to_imgmsg(current_frame, encoding="bgr8"))
 
     def sub_depth_callback(self, msg: image_msg):
         """Retrieves depth at the current detected centroid [u, v] from aligned depth image."""

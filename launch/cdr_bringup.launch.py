@@ -8,13 +8,9 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     # 1. Include official RealSense launch file with align_depth and pointcloud enabled
-    realsense_launch_dir = os.path.join(
-        get_package_share_directory("realsense2_camera"), "launch"
-    )
+    realsense_launch_dir = os.path.join(get_package_share_directory("realsense2_camera"), "launch")
     realsense_node = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(realsense_launch_dir, "rs_launch.py")
-        ),
+        PythonLaunchDescriptionSource(os.path.join(realsense_launch_dir, "rs_launch.py")),
         launch_arguments={
             "align_depth.enable": "true",
             "pointcloud.enable": "true",

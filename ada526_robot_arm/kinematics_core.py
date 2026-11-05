@@ -19,14 +19,10 @@ from geometry_msgs.msg import PoseStamped
 def buildRobot():
     robot = rtb.DHRobot(
         [
-            rtb.RevoluteDH(
-                d=0.2, a=0.0, alpha=pi / 2, qlim=[-110 * pi / 180, 110 * pi / 180]
-            ),
+            rtb.RevoluteDH(d=0.2, a=0.0, alpha=pi / 2, qlim=[-110 * pi / 180, 110 * pi / 180]),
             rtb.RevoluteDH(a=0.20, d=0.0, qlim=[-80 * pi / 180, 80 * pi / 180]),
             rtb.RevoluteDH(a=0.28, d=0.0, qlim=[-80 * pi / 180, 80 * pi / 180]),
-            rtb.RevoluteDH(
-                alpha=pi / 2, offset=pi / 2, qlim=[-80 * pi / 180, 80 * pi / 180]
-            ),
+            rtb.RevoluteDH(alpha=pi / 2, offset=pi / 2, qlim=[-80 * pi / 180, 80 * pi / 180]),
             rtb.RevoluteDH(d=0.05, a=0.00, qlim=[-2 * pi, 2 * pi]),
         ],
         name="My Config 1 Robot",
