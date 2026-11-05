@@ -7,14 +7,14 @@ import numpy as np
 
 try:
     from dynamixel_sdk import (
-        PortHandler,
-        PacketHandler,
-        GroupSyncWrite,
         COMM_SUCCESS,
-        DXL_LOBYTE,
         DXL_HIBYTE,
-        DXL_LOWORD,
         DXL_HIWORD,
+        DXL_LOBYTE,
+        DXL_LOWORD,
+        GroupSyncWrite,
+        PacketHandler,
+        PortHandler,
     )
 
     DXL_AVAILABLE = True
@@ -49,25 +49,19 @@ class RobotControllerNode(Node):
         self.declare_parameter("motor_ids", [1, 2, 3, 4, 5])
         self.declare_parameter("profile_velocity", 40)  # Safe smooth speed limit
         self.declare_parameter("profile_acceleration", 15)  # Safe smooth accel limit
-        self.declare_parameter("hardware_connected", False)  # False allows dry-run testing at home
 
         self.port_name = self.get_parameter("port_name").value
         self.baudrate = self.get_parameter("baudrate").value
         self.motor_ids = self.get_parameter("motor_ids").value
         self.prof_vel = self.get_parameter("profile_velocity").value
         self.prof_acc = self.get_parameter("profile_acceleration").value
-        self.hw_connected = self.get_parameter("hardware_connected").value
 
         # Subscribers
         self.sub_joints = self.create_subscription(Float64MultiArray, "/joint_commands", self.joint_cmd_callback, 10)
         self.sub_goal = self.create_subscription(JointState, "/joint_states", self.joint_state_callback, 10)
 
-        if self.hw_connected and DXL_AVAILABLE:
-            self.init_dynamixels()
-        else:
-            self.get_logger().info(
-                "Running in SIMULATION / DRY-RUN mode (hardware_connected:=False). Commands will be logged in terminal."
-            )
+        # Initialize hardware
+        self.init_dynamixels()
 
     def init_dynamixels(self):
         """Initializes U2D2 port, enables torque, and writes safe velocity/acceleration profiles."""
@@ -79,13 +73,11 @@ class RobotControllerNode(Node):
 
         if not self.portHandler.openPort():
             self.get_logger().error(f"Failed to open U2D2 port {self.port_name}!")
-            self.hw_connected = False
-            return
+            raise RuntimeError(f"Hardware error: Could not open port {self.port_name}")
 
         if not self.portHandler.setBaudRate(self.baudrate):
             self.get_logger().error(f"Failed to set baudrate to {self.baudrate}!")
-            self.hw_connected = False
-            return
+            raise RuntimeError(f"Hardware error: Could not set baudrate to {self.baudrate}")
 
         for dxl_id in self.motor_ids:
             # Configure safe velocity and acceleration profiles before moving
@@ -111,10 +103,6 @@ class RobotControllerNode(Node):
 
     def send_sync_goal_ticks(self, tick_list: list):
         """Uses GroupSyncWrite to command all motors simultaneously."""
-        if not self.hw_connected:
-            self.get_logger().info(f"[DRY-RUN] SyncWrite Goal Ticks: {tick_list}")
-            return
-
         self.groupSyncWrite.clearParam()
         for dxl_id, goal_tick in zip(self.motor_ids, tick_list):
             param_goal_position = [
