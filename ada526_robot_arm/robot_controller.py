@@ -7,9 +7,16 @@ import numpy as np
 
 try:
     from dynamixel_sdk import (
-        PortHandler, PacketHandler, GroupSyncWrite, COMM_SUCCESS,
-        DXL_LOBYTE, DXL_HIBYTE, DXL_LOWORD, DXL_HIWORD
+        PortHandler,
+        PacketHandler,
+        GroupSyncWrite,
+        COMM_SUCCESS,
+        DXL_LOBYTE,
+        DXL_HIBYTE,
+        DXL_LOWORD,
+        DXL_HIWORD,
     )
+
     DXL_AVAILABLE = True
 except ImportError:
     DXL_AVAILABLE = False
@@ -34,43 +41,39 @@ class RobotControllerNode(Node):
     """
 
     def __init__(self):
-        super().__init__('robot_controller_node')
+        super().__init__("robot_controller_node")
 
         # Declare ROS 2 parameters for hardware configuration
-        self.declare_parameter('port_name', '/dev/ttyUSB0')
-        self.declare_parameter('baudrate', 57600)
-        self.declare_parameter('motor_ids', [1, 2, 3, 4, 5])
-        self.declare_parameter('profile_velocity', 40)       # Safe smooth speed limit
-        self.declare_parameter('profile_acceleration', 15)   # Safe smooth accel limit
-        self.declare_parameter('hardware_connected', False)  # False allows dry-run testing at home
+        self.declare_parameter("port_name", "/dev/ttyUSB0")
+        self.declare_parameter("baudrate", 57600)
+        self.declare_parameter("motor_ids", [1, 2, 3, 4, 5])
+        self.declare_parameter("profile_velocity", 40)  # Safe smooth speed limit
+        self.declare_parameter("profile_acceleration", 15)  # Safe smooth accel limit
+        self.declare_parameter(
+            "hardware_connected", False
+        )  # False allows dry-run testing at home
 
-        self.port_name = self.get_parameter('port_name').value
-        self.baudrate = self.get_parameter('baudrate').value
-        self.motor_ids = self.get_parameter('motor_ids').value
-        self.prof_vel = self.get_parameter('profile_velocity').value
-        self.prof_acc = self.get_parameter('profile_acceleration').value
-        self.hw_connected = self.get_parameter('hardware_connected').value
+        self.port_name = self.get_parameter("port_name").value
+        self.baudrate = self.get_parameter("baudrate").value
+        self.motor_ids = self.get_parameter("motor_ids").value
+        self.prof_vel = self.get_parameter("profile_velocity").value
+        self.prof_acc = self.get_parameter("profile_acceleration").value
+        self.hw_connected = self.get_parameter("hardware_connected").value
 
         # Subscribers
         self.sub_joints = self.create_subscription(
-            Float64MultiArray,
-            '/joint_commands',
-            self.joint_cmd_callback,
-            10
+            Float64MultiArray, "/joint_commands", self.joint_cmd_callback, 10
         )
         self.sub_goal = self.create_subscription(
-            JointState,
-            '/joint_states',
-            self.joint_state_callback,
-            10
+            JointState, "/joint_states", self.joint_state_callback, 10
         )
 
         if self.hw_connected and DXL_AVAILABLE:
             self.init_dynamixels()
         else:
             self.get_logger().info(
-                'Running in SIMULATION / DRY-RUN mode (hardware_connected:=False). '
-                'Commands will be logged in terminal.'
+                "Running in SIMULATION / DRY-RUN mode (hardware_connected:=False). "
+                "Commands will be logged in terminal."
             )
 
     def init_dynamixels(self):
@@ -82,12 +85,12 @@ class RobotControllerNode(Node):
         )
 
         if not self.portHandler.openPort():
-            self.get_logger().error(f'Failed to open U2D2 port {self.port_name}!')
+            self.get_logger().error(f"Failed to open U2D2 port {self.port_name}!")
             self.hw_connected = False
             return
 
         if not self.portHandler.setBaudRate(self.baudrate):
-            self.get_logger().error(f'Failed to set baudrate to {self.baudrate}!')
+            self.get_logger().error(f"Failed to set baudrate to {self.baudrate}!")
             self.hw_connected = False
             return
 
@@ -104,9 +107,11 @@ class RobotControllerNode(Node):
                 self.portHandler, dxl_id, ADDR_TORQUE_ENABLE, 1
             )
             if dxl_comm_result != COMM_SUCCESS:
-                self.get_logger().warn(f'Motor ID {dxl_id} not responding!')
+                self.get_logger().warn(f"Motor ID {dxl_id} not responding!")
             else:
-                self.get_logger().info(f'Motor ID {dxl_id} Torque Enabled (Vel={self.prof_vel}, Acc={self.prof_acc}).')
+                self.get_logger().info(
+                    f"Motor ID {dxl_id} Torque Enabled (Vel={self.prof_vel}, Acc={self.prof_acc})."
+                )
 
     @staticmethod
     def rad_to_ticks(angle_rad: float) -> int:
@@ -120,7 +125,7 @@ class RobotControllerNode(Node):
     def send_sync_goal_ticks(self, tick_list: list):
         """Uses GroupSyncWrite to command all motors simultaneously."""
         if not self.hw_connected:
-            self.get_logger().info(f'[DRY-RUN] SyncWrite Goal Ticks: {tick_list}')
+            self.get_logger().info(f"[DRY-RUN] SyncWrite Goal Ticks: {tick_list}")
             return
 
         self.groupSyncWrite.clearParam()
@@ -129,32 +134,42 @@ class RobotControllerNode(Node):
                 DXL_LOBYTE(DXL_LOWORD(goal_tick)),
                 DXL_HIBYTE(DXL_LOWORD(goal_tick)),
                 DXL_LOBYTE(DXL_HIWORD(goal_tick)),
-                DXL_HIBYTE(DXL_HIWORD(goal_tick))
+                DXL_HIBYTE(DXL_HIWORD(goal_tick)),
             ]
             self.groupSyncWrite.addParam(dxl_id, param_goal_position)
 
         dxl_comm_result = self.groupSyncWrite.txPacket()
         if dxl_comm_result != COMM_SUCCESS:
-            self.get_logger().error(f'SyncWrite failed: {self.packetHandler.getTxRxResult(dxl_comm_result)}')
+            self.get_logger().error(
+                f"SyncWrite failed: {self.packetHandler.getTxRxResult(dxl_comm_result)}"
+            )
 
     def joint_cmd_callback(self, msg: Float64MultiArray):
         """Receives [q1, q2, q3, q4, q5] in radians and executes synchronized motion."""
         if len(msg.data) != len(self.motor_ids):
-            self.get_logger().warn(f'Expected {len(self.motor_ids)} joint angles, got {len(msg.data)}.')
+            self.get_logger().warn(
+                f"Expected {len(self.motor_ids)} joint angles, got {len(msg.data)}."
+            )
             return
 
         ticks = [self.rad_to_ticks(q) for q in msg.data]
-        self.get_logger().info(f'Executing Joint Command (rad): {[round(q, 2) for q in msg.data]} -> Ticks: {ticks}')
+        self.get_logger().info(
+            f"Executing Joint Command (rad): {[round(q, 2) for q in msg.data]} -> Ticks: {ticks}"
+        )
         self.send_sync_goal_ticks(ticks)
 
     def joint_state_callback(self, msg: JointState):
         """Receives solved IK joint angles from kinematics_core (in radians)."""
         if len(msg.position) != len(self.motor_ids):
-            self.get_logger().warn(f'Kinematics gave {len(msg.position)} angles, expected {len(self.motor_ids)}.')
+            self.get_logger().warn(
+                f"Kinematics gave {len(msg.position)} angles, expected {len(self.motor_ids)}."
+            )
             return
 
         angles_rad = msg.position
-        self.get_logger().info(f'Received IK Solution (rad): {list(zip(msg.name, msg.position))}')
+        self.get_logger().info(
+            f"Received IK Solution (rad): {list(zip(msg.name, msg.position))}"
+        )
 
         # Convert radians to Dynamixel Ticks and send to motors
         target_ticks = [self.rad_to_ticks(q) for q in angles_rad]
@@ -173,5 +188,5 @@ def main(args=None):
         rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
