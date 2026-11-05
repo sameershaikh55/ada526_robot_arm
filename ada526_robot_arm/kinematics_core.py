@@ -42,11 +42,23 @@ class RobotNode(Node):
         self.traj = []
         self.trajState = False  # Trajetery if true
 
-        self.create_subscription(PoseStamped, "/goal_point", self.subscriber_pos, 10)
+        # State Machine Properties
+        self.target_red = None
+        self.target_green = None
+        self.challenge_state = "WAITING_FOR_TARGETS"
 
+        self.create_subscription(PoseStamped, "/goal_point_red", self.sub_red, 10)
+        self.create_subscription(PoseStamped, "/goal_point_green", self.sub_green, 10)
         self.joint_pub = self.create_publisher(JointState, "/joint_states", 10)
-
         self.create_timer(0.3, self.timer_callback)
+
+    def sub_red(self, msg: PoseStamped):
+        p = msg.pose.position
+        self.target_red = SE3(p.x, p.y, p.z)
+
+    def sub_green(self, msg: PoseStamped):
+        p = msg.pose.position
+        self.target_green = SE3(p.x, p.y, p.z)
 
     def timer_callback(self):
         # Publish step, and go to nex
@@ -56,6 +68,37 @@ class RobotNode(Node):
             else:
                 self.robot.q = self.traj[-1]
                 self.traj.clear()
+
+        # State Machine Logic
+        if self.challenge_state == "WAITING_FOR_TARGETS":
+            # Wait until vision node sees both balls
+            if self.target_red and self.target_green:
+                self.get_logger().info("Both targets locked. Calculating Red IK...")
+                sol = self.posisjons(self.target_red)
+                if sol:
+                    self.traj = list(rtb.jtraj(self.robot.q, sol.q, 50).q)
+                    self.challenge_state = "MOVING_TO_RED"
+                else:
+                    self.get_logger().warn("Red IK failed.")
+
+        elif self.challenge_state == "MOVING_TO_RED":
+            # Once trajectory list is empty, motion to red is finished
+            if not self.traj:
+                self.get_logger().info("Red target hit. Calculating Green IK...")
+                sol = self.posisjons(self.target_green)
+                if sol:
+                    self.traj = list(rtb.jtraj(self.robot.q, sol.q, 50).q)
+                    self.challenge_state = "MOVING_TO_GREEN"
+                else:
+                    self.get_logger().warn("Green IK failed.")
+
+        elif self.challenge_state == "MOVING_TO_GREEN":
+            # Once trajectory list is empty, motion to green is finished
+            if not self.traj:
+                self.get_logger().info("Green target hit. Challenge Complete.")
+                self.challenge_state = "DONE"
+
+        # 3. Publish current state to RobotController
         self.publish_state()
 
     def publish_state(self):

@@ -45,7 +45,6 @@ def generate_launch_description():
         executable="img_processor",
         name="image_processor_node",
         output="screen",
-        parameters=[{"target_color": "red", "show_debug_window": True}],
     )
 
     # 4. Launch Custom Dynamixel Robot Controller Node
@@ -58,7 +57,6 @@ def generate_launch_description():
             {
                 "port_name": "/dev/ttyUSB0",
                 "baudrate": 57600,
-                "hardware_connected": True,
                 "profile_velocity": 35,
                 "profile_acceleration": 12,
             }
