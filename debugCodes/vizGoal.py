@@ -22,7 +22,7 @@ class GoalPointPlotter(Node):
         p = msg.pose.position
         with self.lock:
             self.pos = (p.x, p.y, p.z)
-            self.dirty = True
+            self.dirty = Truethreading
 
 
 def main():

@@ -19,15 +19,15 @@ from geometry_msgs.msg import PoseStamped
 def buildRobot():
     robot = rtb.DHRobot(
         [
-            rtb.RevoluteDH(d=0.2, a=0.0, alpha=pi / 2, qlim=[-110 * pi / 180, 110 * pi / 180]),
-            rtb.RevoluteDH(a=0.20, d=0.0, qlim=[-80 * pi / 180, 80 * pi / 180]),
-            rtb.RevoluteDH(a=0.28, d=0.0, qlim=[-80 * pi / 180, 80 * pi / 180]),
-            rtb.RevoluteDH(alpha=pi / 2, offset=pi / 2, qlim=[-80 * pi / 180, 80 * pi / 180]),
-            rtb.RevoluteDH(d=0.05, a=0.00, qlim=[-2 * pi, 2 * pi]),
+            rtb.RevoluteDH(d=0.197, a=0.0, alpha=pi / 2, qlim=[-110 * pi / 180, 110 * pi / 180]),
+            rtb.RevoluteDH(a=0.285, d=0.0, offset = pi/2, qlim=[-80 * pi / 180, 80 * pi / 180]),
+            rtb.RevoluteDH(a=0.34, d=0.0, qlim=[-80 * pi / 180, 80 * pi / 180]),
+            rtb.RevoluteDH(a = 0.015, alpha=pi / 2, offset=pi / 2, qlim=[-80 * pi / 180, 80 * pi / 180]),
+            rtb.RevoluteDH(d=0.077,  qlim=[-2 * pi, 2 * pi]),
         ],
         name="My Config 1 Robot",
     )
-    robot.tool = SE3(0, 0.05, 0.05)
+    robot.tool = SE3(0, 0.03, 0.075)
     robot.qr = [0, 0, 0, 0, 0]
     return robot
 
@@ -45,8 +45,9 @@ class RobotNode(Node):
         # State Machine Properties
         self.target_red = None
         self.target_green = None
-        self.challenge_state = "WAITING_FOR_TARGETS"
+        self.challenge_state = ""
 
+        self.create_subscription(PoseStamped, "/goal_point", self.subscriber_pos, 10)
         self.create_subscription(PoseStamped, "/goal_point_red", self.sub_red, 10)
         self.create_subscription(PoseStamped, "/goal_point_green", self.sub_green, 10)
         self.joint_pub = self.create_publisher(JointState, "/joint_states", 10)
@@ -59,6 +60,10 @@ class RobotNode(Node):
     def sub_green(self, msg: PoseStamped):
         p = msg.pose.position
         self.target_green = SE3(p.x, p.y, p.z)
+
+    def sub_point(self, msg: PoseStamped):
+        p = msg.pose.position
+        self.target =  SE3(p.x, p.y, p.z)
 
     def timer_callback(self):
         # Publish step, and go to nex

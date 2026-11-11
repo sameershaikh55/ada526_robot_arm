@@ -30,6 +30,8 @@ ADDR_GOAL_POSITION = 116
 ADDR_PRESENT_POSITION = 132
 LEN_GOAL_POSITION = 4
 PROTOCOL_VERSION = 2.0
+gearRatio = [2, 1, 1, 1, 1]
+
 
 
 class RobotControllerNode(Node):
@@ -134,10 +136,10 @@ class RobotControllerNode(Node):
             return
 
         angles_rad = msg.position
-        self.get_logger().info(f"Received IK Solution (rad): {list(zip(msg.name, msg.position))}")
+        #self.get_logger().info(f"Received IK Solution (rad): {list(zip(msg.name, msg.position))}")
 
         # Convert radians to Dynamixel Ticks and send to motors
-        target_ticks = [self.rad_to_ticks(q) for q in angles_rad]
+        target_ticks = [self.rad_to_ticks(q * ratio) for q, ratio in zip(angles_rad, gearRatio)]
         self.send_sync_goal_ticks(target_ticks)
 
 
