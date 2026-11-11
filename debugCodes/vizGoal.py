@@ -15,14 +15,14 @@ class GoalPointPlotter(Node):
         self.create_subscription(PoseStamped, "/goal_point", self.subscriber_pos, 10)
 
         self.lock = threading.Lock()
-        self.pos = None      # (x, y, z)
-        self.dirty = False   # ny data tilgjengelig
+        self.pos = None  # (x, y, z)
+        self.dirty = False  # ny data tilgjengelig
 
     def subscriber_pos(self, msg: PoseStamped):
         p = msg.pose.position
         with self.lock:
             self.pos = (p.x, p.y, p.z)
-            self.dirty = Truethreading
+            self.dirty = True
 
 
 def main():
@@ -47,8 +47,7 @@ def main():
     ax.set_box_aspect((1, 1, 1))
 
     # Selve punktet
-    (point,) = ax.plot([0], [0], [0], marker="o", markersize=10,
-                       color="black", linestyle="None")
+    (point,) = ax.plot([0], [0], [0], marker="o", markersize=10, color="black", linestyle="None")
 
     # Hjelpelinjer fra punktet til hver vegg (x = rød, y = grønn, z = blå)
     (line_x,) = ax.plot([0, -lim], [0, 0], [0, 0], "--", color="red", lw=1.5)
@@ -56,8 +55,7 @@ def main():
     (line_z,) = ax.plot([0, 0], [0, 0], [0, -lim], "--", color="blue", lw=1.5)
 
     # Tekstlapp ved punktet
-    label = ax.text(0, 0, 0, "", fontsize=10,
-                    bbox=dict(boxstyle="round", fc="white", alpha=0.8))
+    label = ax.text(0, 0, 0, "", fontsize=10, bbox=dict(boxstyle="round", fc="white", alpha=0.8))
 
     try:
         while rclpy.ok() and plt.fignum_exists(fig.number):
