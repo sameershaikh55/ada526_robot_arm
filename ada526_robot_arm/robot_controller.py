@@ -30,7 +30,7 @@ ADDR_GOAL_POSITION = 116
 ADDR_PRESENT_POSITION = 132
 LEN_GOAL_POSITION = 4
 PROTOCOL_VERSION = 2.0
-gearRatio = [2, 1, 1, 1, 1]
+gearRatio = [-2, 1, 1, 1, 1]
 
 
 

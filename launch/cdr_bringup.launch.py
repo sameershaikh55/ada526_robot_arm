@@ -28,12 +28,12 @@ def generate_launch_description():
         executable="static_transform_publisher",
         name="camera_to_base_tf",
         arguments=[
-            "0.15",
-            "0.0",
-            "0.40",
-            "-1.5708",
-            "0.0",
-            "-3.1416",
+            "0.0665",   # X
+            "0.0325",   # Y
+            "0.0765",   # Z
+            "-1.5708",  # Yaw (-90 deg)
+            "0.0",      # Pitch (0 deg)
+            "-1.5708",  # Roll (-90 deg)
             "base_link",
             "camera_color_optical_frame",
         ],
@@ -57,8 +57,8 @@ def generate_launch_description():
             {
                 "port_name": "/dev/ttyUSB0",
                 "baudrate": 57600,
-                "profile_velocity": 35,
-                "profile_acceleration": 12,
+                "profile_velocity": 60,
+                "profile_acceleration": 20,
             }
         ],
     )

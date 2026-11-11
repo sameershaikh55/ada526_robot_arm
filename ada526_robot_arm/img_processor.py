@@ -65,13 +65,13 @@ class ImageProcessor(Node):
         self.centroid_green = [320, 240]
 
         # Homogeneous Transformation Matrix T_R_C (Camera Frame {C} -> Robot Base Frame {R})
-        # TODO: Update with Patrick's exact CAD measurements (currently identity + offset placeholder in m)
+        # Camera is looking FORWARD horizontally.
         self.T_R_C = np.array(
             [
-                [0.0, -1.0, 0.0, 0.150],  # X_R (m)
-                [-1.0, 0.0, 0.0, 0.0],  # Y_R (m)
-                [0.0, 0.0, -1.0, 0.400],  # Z_R (m)
-                [0.0, 0.0, 0.0, 1.0],
+                [ 0.0,  0.0,  1.0,  0.0665],  # Robot_X = Camera_Z (Forward) + offset
+                [-1.0,  0.0,  0.0,  0.0325],  # Robot_Y = -Camera_X (Right to Left) + offset
+                [ 0.0, -1.0,  0.0,  0.0700],  # Robot_Z = -Camera_Y (Down to Up) + offset
+                [ 0.0,  0.0,  0.0,  1.0   ],
             ]
         )
 
@@ -169,6 +169,7 @@ class ImageProcessor(Node):
                 # 2. Transform to Robot Base Frame {R}
                 P_C_m = np.array([point_3d_m[0], point_3d_m[1], point_3d_m[2], 1.0])
                 P_R_m = self.T_R_C @ P_C_m
+                # P_R_m = P_C_m
 
                 goal_pose = PoseStamped()
                 goal_pose.header.stamp = cam_pt.header.stamp
