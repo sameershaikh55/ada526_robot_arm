@@ -30,6 +30,7 @@ def generate_launch_description():
         executable="kinematics_core",
         name="kinematics_node",
         output="screen",
+        parameters=[{"challenge_state": "COORDINATE"}],
     )
 
     return LaunchDescription(

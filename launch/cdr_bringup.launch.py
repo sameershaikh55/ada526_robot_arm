@@ -69,6 +69,7 @@ def generate_launch_description():
         executable="kinematics_core",
         name="kinematics_node",
         output="screen",
+        parameters=[{"challenge_state": "WAITING_FOR_TARGETS"}],
     )
 
     return LaunchDescription(
