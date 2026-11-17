@@ -18,8 +18,8 @@ def generate_launch_description():
             {
                 "port_name": "/dev/ttyUSB0",
                 "baudrate": 57600,
-                "profile_velocity": 35,
-                "profile_acceleration": 12,
+                "profile_velocity": 15,
+                "profile_acceleration": 4,
             }
         ],
     )

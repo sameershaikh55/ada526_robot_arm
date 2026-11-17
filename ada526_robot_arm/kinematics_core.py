@@ -16,7 +16,7 @@ from rcl_interfaces.msg import SetParametersResult
 # If you see that the translational o andular distance is too large, the manipulability is close to zero or the Jacobian of the robot loses rank (rank < 5), you should consider changing the robot's link lengths and offsets.
 
 STATES = {"COORDINATE", "WAITING_FOR_TARGETS", "DONE" } #Allowd states 
-Hz = 25 
+Hz = 1 
 DT = 1/Hz 
 PAUSE = 2 #sec to pause on point going
 TRAJ_LENGTH = 10
@@ -27,21 +27,21 @@ def buildRobot():
     robot = rtb.DHRobot(
         [
             rtb.RevoluteDH(d=0.197, a=0.0, alpha=pi / 2, qlim=[-110 * pi / 180, 110 * pi / 180]),
-            rtb.RevoluteDH(a=0.285, d=0.0, offset = pi/2, qlim=[-80 * pi / 180, 80 * pi / 180]),
-            rtb.RevoluteDH(a=0.34, d=0.0, qlim=[-80 * pi / 180, 80 * pi / 180]),
-            rtb.RevoluteDH(a = 0.015, alpha=pi / 2, offset=pi / 2, qlim=[-80 * pi / 180, 80 * pi / 180]),
-            rtb.RevoluteDH(d=0.077,  qlim=[-2 * pi, 2 * pi]),
+            rtb.RevoluteDH(a=0.29, d=0.0, offset = pi/2, qlim=[-95 * pi / 180, 90 * pi / 180]),
+            rtb.RevoluteDH(a=0.34, d=0.0, qlim=[-95 * pi / 180, 90 * pi / 180]),
+            rtb.RevoluteDH(a = 0.015, alpha=pi / 2, offset=pi / 2, qlim=[-100 * pi / 180, 80 * pi / 180]),
+            rtb.RevoluteDH(d=0.077,  qlim=[-pi, pi]),
         ],
         name="My Config 1 Robot",
     )
-    robot.tool = SE3(0, 0.03, 0.075)
-    robot.qr = [0, 0, 0, 0, 0]
+    robot.tool = SE3(0, 0.0, 0.15)
+    robot.qr = [0, -pi/2, 0, 0, 0]
     return robot
 
 
 class RobotNode(Node):
     def __init__(self) -> None:
-        super().__init__("robot_node")
+        super().__init__("kinematics_node")
 
         self.robot = buildRobot()
         self.robot.q = self.robot.qr
@@ -105,6 +105,18 @@ class RobotNode(Node):
             sol = self.posisjons(Tgoal)
             if not sol:
                 self.get_logger().error(f"No solution for ({Tgoal.t[0]:.2f}, {Tgoal.t[1]:.2f}, {Tgoal.t[2]:.2f})")
+                sol = self.robot.ikine_LM(
+                        Tgoal,
+                        q0=self.robot.q,
+                        mask=[1, 1, 1, 0, 0, 0.5],
+                        tol=1e-6,  # Smaller tol => samller error
+                        joint_limits=False,  # Take q.lim in consideration
+                    )
+                if not sol:
+                    self.get_logger().error(f"No solution at all")
+                                    
+                    return
+                self.get_logger().error(f"Vinkler: {np.round(np.rad2deg(sol.q), 0)}")
                 return
             self.robot.q = sol.q
         self.get_logger().info("Goal accapted, moving to goal")
@@ -133,13 +145,6 @@ class RobotNode(Node):
         return SetParametersResult(successful = True)
 
     def timer_callback(self):
-        # Publish step, and go to nex
-        if self.traj:
-            if self.traj_enable:
-                self.robot.q = self.traj.pop(0)
-            else:
-                self.robot.q = self.traj[-1]
-                self.traj.clear()
 
         # State Machine Logic
         if self.challenge_state == "WAITING_FOR_TARGETS":
@@ -151,7 +156,7 @@ class RobotNode(Node):
                 sol = self.robot.ikine_LM(
                         self.start,
                         q0=self.robot.q,
-                        mask=[1, 1, 1, 0, 1, 0.5],
+                        mask=[1, 1, 1, 0, 0, 0.5],
                         tol=1e-3,  # Smaller tol => samller error
                         joint_limits=True,  # Take q.lim in consideration
                     )
@@ -159,7 +164,8 @@ class RobotNode(Node):
                     self.traj = list(rtb.jtraj(self.robot.q, sol.q, TRAJ_LENGTH).q)
                     self.challenge_state = "MOVING_TO_RED"
                 else:
-                    self.get_logger().warn("Red IK failed.")
+                    self.get_logger().warn(f"Red IK failed. {sol.residual}")
+                    self.target_points_found = False
 
         elif self.challenge_state == "MOVING_TO_RED":
             # Once trajectory list is empty, motion to red is finished
@@ -168,7 +174,7 @@ class RobotNode(Node):
                 sol = self.robot.ikine_LM(
                         self.end,
                         q0=self.robot.q,
-                        mask=[1, 1, 1, 0, 1, 0.5],
+                        mask=[1, 1, 1, 0, 0, 0.5],
                         tol=1e-3,  # Smaller tol => samller error
                         joint_limits=True,  # Take q.lim in consideration
                     )
@@ -186,6 +192,22 @@ class RobotNode(Node):
                 self.target_green = None
                 self.target_red = None
                 self.target_points_found = False
+                self.traj.clear()
+
+        elif self.challenge_state == "COORDINATE":
+            self.robot.q = [-pi/2, 0, -pi/2, -pi/2, 0]
+            self.challenge_state = "COORDINATE_MOVE"
+
+        elif self.challenge_state == "COORDINATE_MOVE":
+            self.get_logger().info("Waiting on new coordinate")
+
+        
+        # Publish step, and go to nex
+        if self.traj:
+            if self.traj_enable:
+                self.robot.q = self.traj.pop(0)
+            else:
+                self.robot.q = self.traj[-1]
                 self.traj.clear()
 
         # 3. Publish current state to RobotController
@@ -258,16 +280,6 @@ class RobotNode(Node):
         Tstart = SE3.Rt(R, start)
         Tend = SE3.Rt(R, end)
         return Tstart, Tend
-
-
-
-
-
-
-
-
-
-
 
 
 def main(args=None):
