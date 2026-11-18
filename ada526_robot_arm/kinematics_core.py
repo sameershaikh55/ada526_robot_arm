@@ -16,9 +16,9 @@ from rcl_interfaces.msg import SetParametersResult
 # If you see that the translational o andular distance is too large, the manipulability is close to zero or the Jacobian of the robot loses rank (rank < 5), you should consider changing the robot's link lengths and offsets.
 
 STATES = {"COORDINATE", "WAITING_FOR_TARGETS", "DONE" } #Allowd states 
-Hz = 1 
+Hz = 1
 DT = 1/Hz 
-PAUSE = 2 #sec to pause on point going
+PAUSE = 5 #sec to pause on point going
 TRAJ_LENGTH = 10
 D_START = 0.1
 
@@ -29,13 +29,13 @@ def buildRobot():
             rtb.RevoluteDH(d=0.197, a=0.0, alpha=pi / 2, qlim=[-110 * pi / 180, 110 * pi / 180]),
             rtb.RevoluteDH(a=0.29, d=0.0, offset = pi/2, qlim=[-95 * pi / 180, 90 * pi / 180]),
             rtb.RevoluteDH(a=0.34, d=0.0, qlim=[-95 * pi / 180, 90 * pi / 180]),
-            rtb.RevoluteDH(a = 0.015, alpha=pi / 2, offset=pi / 2, qlim=[-100 * pi / 180, 80 * pi / 180]),
-            rtb.RevoluteDH(d=0.077,  qlim=[-pi, pi]),
+            rtb.RevoluteDH(a = 0.012, alpha=pi / 2, offset=pi / 2, qlim=[-100 * pi / 180, 80 * pi / 180]),
+            rtb.RevoluteDH(d=0.072,  qlim=[-2 * pi, 2 * pi]),   
         ],
         name="My Config 1 Robot",
     )
-    robot.tool = SE3(0, 0.0, 0.15)
-    robot.qr = [0, -pi/2, 0, 0, 0]
+    robot.tool = SE3(0.028, 0.0, 0.15)
+    robot.qr = [0, 0, -pi/2, -pi/2, 0]
     return robot
 
 
@@ -99,10 +99,10 @@ class RobotNode(Node):
                 self.get_logger().error(f"No solution for ({Tgoal.t[0]:.2f}, {Tgoal.t[1]:.2f}, {Tgoal.t[2]:.2f})")
                 return
 
-            self.traj = list(rtb.jtraj(self.robot.q, sol1.q, TRAJ_LENGTH).q) + [sol1.q] * (int(round(PAUSE/DT))) + list(rtb.jtraj(sol1.q, sol2.q, TRAJ_LENGTH//2).q)
+            self.traj = list(rtb.ctraj(self.robot.q, sol1.q, TRAJ_LENGTH).q) + [sol1.q] * (int(round(PAUSE/DT))) + list(rtb.jtraj(sol1.q, sol2.q, TRAJ_LENGTH//2).q)
         
         else:
-            sol = self.posisjons(Tgoal)
+            sol = self.posisjons(Tgoal, lastAngle=0.3)
             if not sol:
                 self.get_logger().error(f"No solution for ({Tgoal.t[0]:.2f}, {Tgoal.t[1]:.2f}, {Tgoal.t[2]:.2f})")
                 sol = self.robot.ikine_LM(
@@ -150,13 +150,14 @@ class RobotNode(Node):
         if self.challenge_state == "WAITING_FOR_TARGETS":
             # Wait until vision node sees both balls
             if self.target_red and self.target_green:
+                #self.robot.tool = SE3(0.028, 0.0, 0.07)
                 self.target_points_found = True
                 self.start, self.end = self.line(self.target_red, self.target_green)
                 self.get_logger().info("Both targets locked. Calculating Red IK...")
                 sol = self.robot.ikine_LM(
                         self.start,
                         q0=self.robot.q,
-                        mask=[1, 1, 1, 0, 0, 0.5],
+                        mask=[1, 1, 1, 0, 0.0, 0.8],
                         tol=1e-3,  # Smaller tol => samller error
                         joint_limits=True,  # Take q.lim in consideration
                     )
@@ -174,7 +175,7 @@ class RobotNode(Node):
                 sol = self.robot.ikine_LM(
                         self.end,
                         q0=self.robot.q,
-                        mask=[1, 1, 1, 0, 0, 0.5],
+                        mask=[1, 1, 1, 0, 0.0, 0.8],
                         tol=1e-3,  # Smaller tol => samller error
                         joint_limits=True,  # Take q.lim in consideration
                     )
@@ -240,6 +241,9 @@ class RobotNode(Node):
             mask=[1, 1, 1, 0, 0, lastAngle],
             tol=1e-6,  # Smaller tol => samller error
             joint_limits=True,  # Take q.lim in consideration
+           # search=True,
+            slimit=1000,
+            ilimit=1000,   
         )
 
         if sol.success and self.no_leagal_point(self.robot.fkine_all(sol.q)):
@@ -253,6 +257,9 @@ class RobotNode(Node):
                     mask=[1, 1, 1, 0, 0, lastAngle],
                     tol=1e-6,  # Smaller tol => samller error
                     joint_limits=True,  # Take q.lim in consideration
+                    #search=True,
+                    slimit=1000,
+                    ilimit=1000,   
                 )
 
         if sol:
@@ -261,21 +268,33 @@ class RobotNode(Node):
         return sol
 
     def line(self, T_red, T_green):
-        red = T_red.t
-        green = T_green.t
+        D_X = -0.025  # Flytt 5 cm mot negativ X
+
+        red = T_red.t.copy()
+        green = T_green.t.copy()
+
+        # Flytt begge punktene i X-retning
+        red[0] -= D_X
+        green[0] -= D_X
         L = np.linalg.norm(green - red)
 
         v = (green - red) / L   # vector from red to green
         start = red - D_START * v
-        end = green + D_START * v
+        end = green - D_START /2 * v
 
-        x = v
+        # X-akse horisontal
+        x = np.array([v[0], v[1], 0.0])
+        x /= np.linalg.norm(x)
+
+        # Z-akse horisontal og vinkelrett på X
         z = np.cross(x, [0, 0, 1])
         z /= np.linalg.norm(z)
-        y = np.cross(z,x)
+
+        # Y-akse vertikal
+        y = np.cross(z, x)
         y /= np.linalg.norm(y)
 
-        R = np.column_stack((x,y,z))
+        R = np.column_stack((x, y, z))
 
         Tstart = SE3.Rt(R, start)
         Tend = SE3.Rt(R, end)
