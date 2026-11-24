@@ -32,6 +32,7 @@ setup(
             "img_processor = ada526_robot_arm.img_processor:main",
             "robot_controller = ada526_robot_arm.robot_controller:main",
             "kinematics_core = ada526_robot_arm.kinematics_core:main",
+            "kinematics_core2 = ada526_robot_arm.kinematics_core_calibration:main",
         ],
     },
 )

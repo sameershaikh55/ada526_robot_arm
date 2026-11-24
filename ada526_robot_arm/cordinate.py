@@ -24,6 +24,7 @@ class RobotNode(Node):
         goal_pt.pose.position.x = float(xAxie)
         goal_pt.pose.position.y = float(yAxie)
         goal_pt.pose.position.z = float(z)
+        print(f"x:{xAxie},y:{yAxie},z:{z}")
         goal_pt.pose.orientation.w = 1.0
 
         self.joint_pub.publish(goal_pt)
@@ -43,7 +44,7 @@ def main(args=None):
                 print("Invalid inpt")
                 print()
                 continue
-            node.publish_goal(x, y, 0.06)
+            node.publish_goal(x, y, 0.04)
     except (KeyboardInterrupt, EOFError):
         pass
     finally:

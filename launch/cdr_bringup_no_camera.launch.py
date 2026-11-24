@@ -18,8 +18,8 @@ def generate_launch_description():
             {
                 "port_name": "/dev/ttyUSB0",
                 "baudrate": 57600,
-                "profile_velocity": 35,
-                "profile_acceleration": 12,
+                "profile_velocity": 10,
+                "profile_acceleration": 4,
             }
         ],
     )
@@ -27,9 +27,10 @@ def generate_launch_description():
     # 5. Launch Kinematics Core Node
     kinematics_node = Node(
         package="ada526_robot_arm",
-        executable="kinematics_core",
+        executable="kinematics_core2",
         name="kinematics_node",
         output="screen",
+        parameters=[{"challenge_state": "COORDINATE", }],
     )
 
     return LaunchDescription(

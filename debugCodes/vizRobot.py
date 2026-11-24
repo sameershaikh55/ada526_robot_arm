@@ -14,15 +14,15 @@ def buildRobot():
     robot = rtb.DHRobot(
         [
             rtb.RevoluteDH(d=0.197, a=0.0, alpha=pi / 2, qlim=[-110 * pi / 180, 110 * pi / 180]),
-            rtb.RevoluteDH(a=0.285, d=0.0, offset = pi/2, qlim=[-80 * pi / 180, 80 * pi / 180]),
+            rtb.RevoluteDH(a=0.29, d=0.0, offset = pi/2, qlim=[-80 * pi / 180, 80 * pi / 180]),
             rtb.RevoluteDH(a=0.34, d=0.0, qlim=[-80 * pi / 180, 80 * pi / 180]),
-            rtb.RevoluteDH(a = 0.015, alpha=pi / 2, offset=pi / 2, qlim=[-80 * pi / 180, 80 * pi / 180]),
+            rtb.RevoluteDH(a = 0.015, alpha=pi / 2, offset=pi / 2, qlim=[-100 * pi / 180, 80 * pi / 180]),
             rtb.RevoluteDH(d=0.077,  qlim=[-2 * pi, 2 * pi]),
         ],
         name="My Config 1 Robot",
     )
-    robot.tool = SE3(0, 0.03, 0.075)
-    robot.qr = [0, 0, 0, 0, 0]
+    robot.tool = SE3(0, 0.03, 0.15)
+    robot.qr = [0, -pi/2, 0, 0, 0]
     return robot
 
 class RobotViz(Node):
@@ -46,8 +46,9 @@ class RobotViz(Node):
 
         self.robot.q = list(msg.position[:self.robot.n])
         self.robot_plot.step()
+        T = self.robot.fkine(self.robot.q)
         self.get_logger().info(
-            f"Leddvinklar: {np.round(np.rad2deg(self.robot.q),0)}"
+            f"Leddvinklar: {np.round(np.rad2deg(self.robot.q),0)}, kordinat : {T.t[0]:.3f},{T.t[1]:.3f},{T.t[2]:.3f}"
         )
 
 
